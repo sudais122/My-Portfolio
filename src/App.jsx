@@ -89,7 +89,11 @@ const toolkit = [
   },
 ];
 
-const steps = ["Understand the need", "Shape the experience", "Build the product"];
+const steps = [
+  "Understand the need",
+  "Shape the experience",
+  "Build the product",
+];
 
 const achievements = [
   {
@@ -148,7 +152,147 @@ const marqueeWords = [
   "Full-stack developer",
   "Student",
 ];
+const SCRAMBLE_CHARS =
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&@*+";
 
+function ScrambleText({
+  children,
+  className = "",
+  playOnLoad = false,
+  delay = 1500,
+}) {
+  const text = String(children);
+  const hostRef = useRef(null);
+  const liveRef = useRef(null);
+  const timer = useRef(0);
+
+  const reset = () => {
+    clearInterval(timer.current);
+    if (liveRef.current) liveRef.current.textContent = text;
+  };
+
+  const play = () => {
+    const el = liveRef.current;
+    if (!el) return;
+    const skip =
+      hostRef.current?.closest(".motion-off") ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (skip) return;
+
+    clearInterval(timer.current);
+    const steps = 14;
+    let step = 0;
+
+    timer.current = setInterval(() => {
+      step += 1;
+      const revealed = Math.floor((step / steps) * text.length);
+      el.textContent = text
+        .split("")
+        .map((ch, i) =>
+          i < revealed || ch === " " || ch === "/"
+            ? ch
+            : SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)],
+        )
+        .join("");
+
+      if (step >= steps) {
+        clearInterval(timer.current);
+        el.textContent = text;
+      }
+    }, 35);
+  };
+
+  useEffect(() => {
+    const start = playOnLoad ? setTimeout(play, delay) : 0;
+    return () => {
+      clearTimeout(start);
+      clearInterval(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <span
+      ref={hostRef}
+      className={`scramble-host ${className}`}
+      onMouseEnter={play}
+      onMouseLeave={reset}
+      aria-label={text}
+    >
+      <span className="scramble scramble-left" aria-hidden="true">
+        <span className="scramble-ghost">{text}</span>
+        <span className="scramble-live" ref={liveRef}>
+          {text}
+        </span>
+      </span>
+    </span>
+  );
+}
+/* Nav link whose text scrambles, then resolves left to right, on hover/focus */
+function ScrambleLink({ href, onClick, children }) {
+  const text = String(children);
+  const linkRef = useRef(null);
+  const liveRef = useRef(null);
+  const timer = useRef(0);
+
+  const reset = () => {
+    clearInterval(timer.current);
+    if (liveRef.current) liveRef.current.textContent = text;
+  };
+
+  const play = () => {
+    const el = liveRef.current;
+    if (!el) return;
+    const skip =
+      linkRef.current?.closest(".motion-off") ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (skip) return;
+
+    clearInterval(timer.current);
+    const steps = 14;
+    let step = 0;
+
+    timer.current = setInterval(() => {
+      step += 1;
+      const revealed = Math.floor((step / steps) * text.length);
+      el.textContent = text
+        .split("")
+        .map((ch, i) =>
+          i < revealed || ch === " "
+            ? ch
+            : SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)],
+        )
+        .join("");
+
+      if (step >= steps) {
+        clearInterval(timer.current);
+        el.textContent = text;
+      }
+    }, 35);
+  };
+
+  useEffect(() => () => clearInterval(timer.current), []);
+
+  return (
+    <a
+      ref={linkRef}
+      href={href}
+      onClick={onClick}
+      onMouseEnter={play}
+      onMouseLeave={reset}
+      onFocus={play}
+      onBlur={reset}
+      aria-label={text}
+    >
+      <span className="scramble" aria-hidden="true">
+        <span className="scramble-ghost">{text}</span>
+        <span className="scramble-live" ref={liveRef}>
+          {text}
+        </span>
+      </span>
+    </a>
+  );
+}
 function Navbar() {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -161,10 +305,18 @@ function Navbar() {
         </a>
 
         <div className={`nav-links ${open ? "is-open" : ""}`}>
-          <a href="#work" onClick={close}>Work</a>
-          <a href="#about" onClick={close}>About</a>
-          <a href="#toolkit" onClick={close}>Toolkit</a>
-          <a href="#recognition" onClick={close}>Recognition</a>
+          <ScrambleLink href="#work" onClick={close}>
+            Work
+          </ScrambleLink>
+          <ScrambleLink href="#about" onClick={close}>
+            About
+          </ScrambleLink>
+          <ScrambleLink href="#toolkit" onClick={close}>
+            Toolkit
+          </ScrambleLink>
+          <ScrambleLink href="#recognition" onClick={close}>
+            Recognition
+          </ScrambleLink>
           <a href="#contact" className="nav-cta" onClick={close}>
             Let's talk <span>↗</span>
           </a>
@@ -261,7 +413,9 @@ function Hero() {
         </div>
 
         <div className="hero-side">
-          <span className="mono accent">01 / Presence</span>
+          <ScrambleText className="mono accent" playOnLoad>
+            01 / Presence
+          </ScrambleText>
           <span className="plus">+</span>
           <p className="mono">
             Engineering
@@ -374,26 +528,35 @@ function About() {
 
       <div className="about-grid">
         <div className="about-copy reveal">
-          <p className="about-lead">I connect engineering, design, and problem solving.</p>
+          <p className="about-lead">
+            I connect engineering, design, and problem solving.
+          </p>
           <p>
             I'm Muhammad Sudais, a Software Engineering student at Abdul Wali
             Khan University Mardan and a full-stack developer passionate about
             creating practical, user-focused applications.
           </p>
           <p>
-            From frontend interfaces to backend APIs and database integration,
-            I take ideas through the whole development process and turn them
-            into working products. Outside development, I take part in
-            technology competitions and contribute to my department as a CCPC
-            Ambassador.
+            From frontend interfaces to backend APIs and database integration, I
+            take ideas through the whole development process and turn them into
+            working products. Outside development, I take part in technology
+            competitions and contribute to my department as a CCPC Ambassador.
           </p>
         </div>
 
         <div className="perspective reveal">
-          <p className="mono muted">Three disciplines. One perspective. 0{active + 1} / 03</p>
+          <p className="mono muted">
+            Three disciplines. One perspective. 0{active + 1} / 03
+          </p>
           <h3 key={p.key}>{p.title}</h3>
-          <p className="perspective-text" key={p.text}>{p.text}</p>
-          <div className="chips" role="tablist" aria-label="Choose a perspective">
+          <p className="perspective-text" key={p.text}>
+            {p.text}
+          </p>
+          <div
+            className="chips"
+            role="tablist"
+            aria-label="Choose a perspective"
+          >
             {perspectives.map((item, i) => (
               <button
                 key={item.key}
@@ -481,7 +644,9 @@ function Toolkit() {
 
       <div className="toolkit reveal">
         <div className="toolkit-side">
-          <p className="mono muted">Choose a discipline. Follow the thinking.</p>
+          <p className="mono muted">
+            Choose a discipline. Follow the thinking.
+          </p>
           <div className="tabs">
             {toolkit.map((item, i) => (
               <button
@@ -582,7 +747,9 @@ function Contact() {
   return (
     <section id="contact" className="contact">
       <div className="container contact-inner reveal">
-        <p className="mono eyebrow">06 / The next chapter · Let's make it matter</p>
+        <p className="mono eyebrow">
+          06 / The next chapter · Let's make it matter
+        </p>
         <h2>
           Something great starts with <em>a hello.</em>
         </h2>
@@ -628,7 +795,11 @@ function Footer() {
           >
             LinkedIn
           </a>
-          <a href="https://github.com/sudais122" target="_blank" rel="noreferrer">
+          <a
+            href="https://github.com/sudais122"
+            target="_blank"
+            rel="noreferrer"
+          >
             GitHub
           </a>
           <a href="#top">Back to top ↑</a>
@@ -648,7 +819,7 @@ export default function App() {
   const [motionOff, setMotionOff] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
 
   useGSAP(
@@ -667,14 +838,14 @@ export default function App() {
         .from(
           ".hero-top, .hero-side, .hero-bottom",
           { opacity: 0, y: 14, duration: 0.7, stagger: 0.1 },
-          "-=1.3"
+          "-=1.3",
         )
         .from(".hero-kicker", { y: 16, opacity: 0, duration: 0.6 }, "-=0.9")
         .from(".hero-title", { y: 70, opacity: 0, duration: 1.1 }, "-=0.7")
         .from(
           ".hero-sub, .hero-actions",
           { y: 22, opacity: 0, duration: 0.7, stagger: 0.14 },
-          "-=0.6"
+          "-=0.6",
         );
 
       /* ---- Scroll effect on the hero image (and text) ---- */
@@ -687,7 +858,12 @@ export default function App() {
 
       gsap.fromTo(
         ".hero-photo",
-        { yPercent: 0, scale: 1, opacity: 1, filter: "blur(0px) brightness(1)" },
+        {
+          yPercent: 0,
+          scale: 1,
+          opacity: 1,
+          filter: "blur(0px) brightness(1)",
+        },
         {
           yPercent: 18,
           scale: 1.22,
@@ -695,7 +871,7 @@ export default function App() {
           filter: "blur(8px) brightness(0.6)",
           ease: "none",
           scrollTrigger: heroScroll,
-        }
+        },
       );
 
       gsap.to(".hero-center", {
@@ -722,7 +898,7 @@ export default function App() {
         });
       });
     },
-    { scope: appRef, dependencies: [motionOff], revertOnUpdate: true }
+    { scope: appRef, dependencies: [motionOff], revertOnUpdate: true },
   );
 
   return (

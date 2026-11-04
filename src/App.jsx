@@ -293,30 +293,86 @@ function ScrambleLink({ href, onClick, children }) {
     </a>
   );
 }
+
 function Navbar() {
   const [open, setOpen] = useState(false);
+  const navRef = useRef(null);
+
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 860px)");
+
+    const handleResize = () => {
+      if (!mediaQuery.matches) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    // Prevent background scrolling while mobile menu is open
+    if (open && mediaQuery.matches) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [open]);
+
+  // Close menu when clicking outside the navbar
+  useEffect(() => {
+    if (!open) return;
+
+    const handleOutsideClick = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        close();
+      }
+    };
+
+    document.addEventListener("pointerdown", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsideClick);
+    };
+  }, [open]);
 
   return (
     <header className="site-header">
-      <nav className="navbar">
+      <nav className="navbar" ref={navRef} aria-label="Main navigation">
         <a href="#top" className="brand" onClick={close}>
           Muhammad Sudais
         </a>
 
-        <div className={`nav-links ${open ? "is-open" : ""}`}>
+        <div id="nav-links" className={`nav-links ${open ? "is-open" : ""}`}>
           <ScrambleLink href="#work" onClick={close}>
             Work
           </ScrambleLink>
+
           <ScrambleLink href="#about" onClick={close}>
             About
           </ScrambleLink>
+
           <ScrambleLink href="#toolkit" onClick={close}>
             Toolkit
           </ScrambleLink>
+
           <ScrambleLink href="#recognition" onClick={close}>
             Recognition
           </ScrambleLink>
+
           <a href="#contact" className="nav-cta" onClick={close}>
             Let's talk <span>↗</span>
           </a>
@@ -324,11 +380,15 @@ function Navbar() {
 
         <button
           type="button"
-          className="menu-btn"
+          className={`menu-btn ${open ? "is-active" : ""}`}
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
+          aria-controls="nav-links"
+          aria-label={open ? "Close navigation" : "Open navigation"}
         >
-          {open ? "Close" : "Menu"}
+          <span className="hamburger-line line-1" />
+          <span className="hamburger-line line-2" />
+          <span className="hamburger-line line-3" />
         </button>
       </nav>
     </header>
@@ -380,6 +440,204 @@ function MotionToggle({ motionOff, onToggle }) {
     >
       <i /> Motion {motionOff ? "off" : "on"}
     </button>
+  );
+}
+
+
+function ParticlePortrait({ src, alt, motionOff }) {
+  const canvasRef = useRef(null);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const hero = canvas?.closest(".hero");
+    if (!canvas || !hero) return;
+
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) return;
+
+    const image = new Image();
+    const state = { width: 0, height: 0, particles: [], progress: 0 };
+    const cell = 4;
+
+    let disposed = false;
+    let resizeObserver;
+
+    const render = (progress = 0) => {
+      if (disposed || !image.complete || !image.naturalWidth) return;
+
+      state.progress = motionOff ? 0 : progress;
+
+      const { width, height } = state;
+      const p = state.progress;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Keep the original image crisp at the beginning.
+      if (p < 0.34) {
+        ctx.save();
+        ctx.globalAlpha = 1 - p / 0.34;
+        ctx.drawImage(image, 0, 0, width, height);
+        ctx.restore();
+      }
+
+      // Turn the image into scattered particles.
+      if (p > 0.04) {
+        const reveal = Math.min(1, (p - 0.04) / 0.96);
+        const scatter = reveal * reveal;
+
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, reveal * 3);
+
+        for (const particle of state.particles) {
+          const x = particle.x + particle.dx * scatter;
+          const y = particle.y + particle.dy * scatter;
+          const size = cell * 0.85 * (1 - reveal * 0.65);
+
+          ctx.fillStyle = particle.color;
+          ctx.globalAlpha =
+            Math.min(1, reveal * 3) * (1 - reveal * 0.75);
+
+          ctx.beginPath();
+          ctx.arc(x, y, Math.max(0.4, size / 2), 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    };
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      state.width = rect.width;
+      state.height = rect.height;
+
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = Math.round(rect.width);
+      offscreen.height = Math.round(rect.height);
+
+      const offCtx = offscreen.getContext("2d");
+      if (!offCtx) return;
+
+      // Object-fit: cover
+      const scale = Math.max(
+        rect.width / image.naturalWidth,
+        rect.height / image.naturalHeight,
+      );
+
+      const drawWidth = image.naturalWidth * scale;
+      const drawHeight = image.naturalHeight * scale;
+      const offsetX = (rect.width - drawWidth) / 2;
+      const offsetY = (rect.height - drawHeight) / 2;
+
+      offCtx.drawImage(
+        image,
+        offsetX,
+        offsetY,
+        drawWidth,
+        drawHeight,
+      );
+
+      const pixels = offCtx.getImageData(
+        0,
+        0,
+        offscreen.width,
+        offscreen.height,
+      ).data;
+
+      const particles = [];
+
+      for (let y = 0; y < rect.height; y += cell) {
+        for (let x = 0; x < rect.width; x += cell) {
+          const index =
+            (Math.floor(y) * offscreen.width + Math.floor(x)) * 4;
+
+          const alpha = pixels[index + 3];
+          if (alpha < 30) continue;
+
+          const r = pixels[index];
+          const g = pixels[index + 1];
+          const b = pixels[index + 2];
+
+          // Deterministic random scatter.
+          const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+          const random = seed - Math.floor(seed);
+
+          const angle = Math.atan2(
+            y - rect.height / 2,
+            x - rect.width / 2,
+          ) + (random - 0.5) * 2.5;
+
+          const distance =
+            (0.25 + random * 0.75) *
+            Math.max(rect.width, rect.height) *
+            0.42;
+
+          particles.push({
+            x,
+            y,
+            dx: Math.cos(angle) * distance,
+            dy: Math.sin(angle) * distance,
+            color: `rgba(${r}, ${g}, ${b}, ${alpha / 255})`,
+          });
+        }
+      }
+
+      state.particles = particles;
+      render(state.progress);
+    };
+
+    image.onload = () => {
+      if (disposed) return;
+      resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(canvas);
+      resize();
+    };
+
+    image.onerror = () => {
+      if (!disposed) setImageFailed(true);
+    };
+
+    image.src = src;
+
+    // Scroll controls the particle disintegration.
+    const trigger = ScrollTrigger.create({
+      trigger: hero,
+      start: "top top",
+      end: "bottom top",
+      scrub: true,
+      onUpdate: (self) => render(self.progress),
+    });
+
+    render(0);
+
+    return () => {
+      disposed = true;
+      trigger.kill();
+      resizeObserver?.disconnect();
+    };
+  }, [src, motionOff]);
+
+  if (imageFailed) {
+    return <div className="hero-photo-fallback" />;
+  }
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="particle-portrait"
+      role="img"
+      aria-label={alt}
+    />
   );
 }
 
